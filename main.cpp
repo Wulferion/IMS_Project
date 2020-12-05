@@ -2,15 +2,16 @@
 #include <iomanip>
 #include "simulib.hpp"
 
+void prdel_function(){
+    std::cout<<"PRDE:"<<std::endl;
+}
 int main(int argc, char const *argv[])
 {
-    double sum = 0;
-    for(int i = 0; i<10;i++)
-    {
-        double res = Distribution::uniform(0.0,10.0);
-        sum += res;
-        //std::cout << std::fixed << std::setprecision(2) << res << std::endl;
-    }
-    std::cout << "-------------------------------------------------------" << std::endl << "Mean: " << std::fixed << std::setprecision(2) << sum/10 << std::endl;
+    Event prdel = Event(23,prdel_function);
+    Event prdel2 = Event(22,prdel_function);
+    prdel.execute();
+    
+    std::cout << (prdel == prdel2) << std::endl;
+
     return 0;
 }
