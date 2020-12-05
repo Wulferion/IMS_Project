@@ -1,9 +1,10 @@
 CPP=g++
+CPPFLAGS=-std=c++17 -Wall
 
 all: simulib
 
 simulib: simulib.cpp
-			$(CPP) main.cpp simulib.cpp -o sim.out
+			$(CPP) $(CPPFLAGS) main.cpp simulib.cpp -o sim.out
 
 run: ./sim
 
