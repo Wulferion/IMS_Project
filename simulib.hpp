@@ -37,7 +37,7 @@ class Event
         Event(double time,Process* process);
         void execute();
         double get_time();
-        bool less_than(Event& e1, Event& e2);
+
         bool operator>(Event& other);
         bool operator<(Event& other);
         bool operator==(Event& other);
@@ -58,6 +58,21 @@ class Facility
         void dequeue();
 };
 
+class Store
+{ 
+    private:
+        unsigned int capacity;
+        unsigned int occupied = 0;
+        std::vector<Event> queue;
+
+    public:
+        unsigned int available_capacity();
+        unsigned int take(unsigned int requirment);
+        void give_back(unsigned int requirment);
+        void enque(Process* process);
+        void dequeue();
+};
+
 class Enviroment
 {
     private:
@@ -66,7 +81,7 @@ class Enviroment
         std::vector<Event> event_calendar;
         Event next_event(void);
         std::map<std::string, Facility> facilities;
-        //std::map<std::string, Store> stores;
+        std::map<std::string, Store> stores;
     public:
         double current_time = 0;
         Enviroment(double end_time);

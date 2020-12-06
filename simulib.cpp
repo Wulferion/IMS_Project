@@ -127,6 +127,8 @@ void Enviroment::add_facility(std::string name, Facility fac)
     this->facilities[name] = fac;
 }
 
+//Facitity
+
 Facility* Enviroment::get_facility(std::string name)
 {
     return &facilities[name];
@@ -146,6 +148,7 @@ bool Facility::occupy()
 void Facility::leave()
 {
     this->occupied = false;
+    this->dequeue();
 }
 
 void Facility::enque( Process* process)
@@ -154,6 +157,44 @@ void Facility::enque( Process* process)
 }
 
 void Facility::dequeue(){
+    Event event = queue.front();
+    queue.erase(queue.begin());
+    event.execute();
+}
+
+//Store
+
+Facility* Enviroment::get_store(std::string name)
+{
+    return &stores[name];
+}
+
+unsigned int Store::available_capacity()
+{
+    return (this->capacity - this->occupied();
+}
+
+unsigned int Store::take(unsigned int requirment)
+{
+    if( this->available_capacity() < requirment) return false;
+    this->occupied += requirment;
+    return true;
+    
+}
+void Store::give_back(unsigned int requirment)
+{
+    this->occupied -= requirment;
+    this->dequeue();
+}
+
+void Store::enque( Process* process)
+{
+    this->queue.push_back(Event(0, process));
+}
+
+
+//PRDEL - PROBLEM !!!!!!!!
+void Store::dequeue(){
     Event event = queue.front();
     queue.erase(queue.begin());
     event.execute();
