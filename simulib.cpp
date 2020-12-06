@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cassert>
 #include <algorithm>
+#include <iostream>
 
 // Distribution
 double Distribution::random(void) 
@@ -19,7 +20,7 @@ double Distribution::exponential(int mean)
 
 double Distribution::normal(int mean, double deviation)
 {
-    assert(deviation < 0);
+    assert(deviation > 0);
     return sqrt(-2*log(random()))*cos(2*3.1415*random())*deviation+mean;
 }
 
@@ -29,13 +30,13 @@ double Distribution::uniform(int lower, int upper)
     return random() * (upper-lower) + lower;
 }
 // Event
-Event::Event(double time, std::function<void()> operation){
+Event::Event(double time, Process* process){
     this->time = time;
-    this->operation = operation;
+    this->process = process;
 }
 void Event::execute()
 {
-    std::invoke(this->operation);
+    process->next();
 }
 
 bool Event::operator==(Event& other)
@@ -74,11 +75,13 @@ Process::Process(Enviroment* env)
     this->env = env;
 }
 
-void Process::hand_over(double time, std::function<void()> next)
+void Process::hand_over(double time,int next)
 {
-    env->schedule(Event(env->current_time+time,next));
+    this->next_state = next;
+    env->schedule(Event(env->current_time+time, this));
     return;
 }
+
 // Enviroment
 
 Enviroment::Enviroment(double duration)
@@ -105,7 +108,8 @@ void Enviroment::schedule(Event event)
             event_calendar.emplace(event_calendar.begin()+i,event);
             return;
         }
-    } 
+    }
+    event_calendar.push_back(event);
 }
 
 void Enviroment::run(void)
@@ -116,4 +120,41 @@ void Enviroment::run(void)
         this->current_time = nevent.get_time();
         nevent.execute();
     }
+}
+
+void Enviroment::add_facility(std::string name, Facility fac)
+{
+    this->facilities[name] = fac;
+}
+
+Facility* Enviroment::get_facility(std::string name)
+{
+    return &facilities[name];
+}
+
+bool Facility::is_occupied(){
+    return this->occupied;
+}
+
+bool Facility::occupy()
+{
+    if( this->occupied == true) return false;
+    this->occupied = true;
+    return true;
+    
+}
+void Facility::leave()
+{
+    this->occupied = false;
+}
+
+void Facility::enque( Process* process)
+{
+    this->queue.push_back(Event(0, process));
+}
+
+void Facility::dequeue(){
+    Event event = queue.front();
+    queue.erase(queue.begin());
+    event.execute();
 }

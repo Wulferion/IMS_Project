@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include <map>
 #include <functional>
 class Distribution
 {
@@ -11,14 +12,29 @@ class Distribution
         static double uniform(int lower, int upper);
 
 };
+class Enviroment;
+class Process
+{
+    private:
+        
+    protected:
+        Enviroment* env;
+        double start_time;
+        int next_state;
+    public:
+        Process(Enviroment* env);
+        virtual void start(void) = 0;
+        virtual void next(void) = 0;
+        void hand_over(double time, int next);
+};
 
 class Event
 {
     private:
         double time;  
-        std::function<void()> operation;
+        Process* process;
     public:
-        Event(double time, std::function<void()> operation);
+        Event(double time,Process* process);
         void execute();
         double get_time();
         bool less_than(Event& e1, Event& e2);
@@ -28,6 +44,20 @@ class Event
         bool operator<=(Event& other);
         bool operator>=(Event& other);
 };
+class Facility
+{ 
+    private:
+        bool occupied = false;
+        std::vector<Event> queue;
+
+    public:
+        bool is_occupied();
+        bool occupy();
+        void leave();
+        void enque(Process* process);
+        void dequeue();
+};
+
 class Enviroment
 {
     private:
@@ -35,36 +65,13 @@ class Enviroment
         double end_time;
         std::vector<Event> event_calendar;
         Event next_event(void);
+        std::map<std::string, Facility> facilities;
+        //std::map<std::string, Store> stores;
     public:
         double current_time = 0;
         Enviroment(double end_time);
         void schedule(Event event);
         void run(void);
-};
-class Process
-{
-    private:
-        double start_time;
-    
-    protected:
-        Enviroment* env;
-        
-    protected:    
-        void hand_over(double time, std::function<void()> next);
-    
-    public:
-        Process(Enviroment* env);
-        virtual void start(void) = 0;
-};
-
-
-
-class ProcessGenerator: public Process
-{
-
-};
-
-class Facility
-{ 
-
+        void add_facility(std::string name, Facility fac);
+        Facility* get_facility(std::string name);
 };
