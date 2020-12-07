@@ -1,6 +1,6 @@
-/*!
-    @authors Vojtech Krejcik (xkrejc68), Jiri Pisk (xpiskj00)
-    @date 7. 12. 2020
+/*
+    authors Vojtech Krejcik (xkrejc68), Jiri Pisk (xpiskj00)
+    date 7. 12. 2020
 */
 
 #include <iostream>

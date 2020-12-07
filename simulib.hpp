@@ -1,6 +1,6 @@
-/*!
-    @authors Vojtech Krejcik (xkrejc68), Jiri Pisk (xpiskj00)
-    @date 7. 12. 2020
+/*
+    authors Vojtech Krejcik (xkrejc68), Jiri Pisk (xpiskj00)
+    date 7. 12. 2020
 */
 #pragma once
 #include <cstdint>
@@ -37,9 +37,12 @@ class Process
         double start_time;
         int next_state;
     public:
+        /// Constructor for porcess, class, requires initilized enviroment
         Process(Enviroment* env);
+        
         virtual void start(void) = 0;
         virtual void next(void) = 0;
+        /// creates event in calendar to 'current_time' + 'time' and sets state if process on 'next'
         void hand_over(double time, int next);
 };
 
@@ -54,8 +57,11 @@ class Event
         double time;  
         Process* process;
     public:
-        Event(double time,Process* process);
+        /// Creates event with 'current_time' + 'time' and reference to process
+        Event(double time, Process* process);
+        /// Invokes process from event according to his state
         void execute();
+        // returns event time
         double get_time();
 
         bool operator>(Event& other);
@@ -76,10 +82,15 @@ class Facility
         std::vector<Event> queue;
 
     public:
+        /// True if facility is occupied and false, if not
         bool is_occupied();
+        /// Sets occupied on true and returns true, if facility is already occupied returns false
         bool occupy();
+        /// Sets occupied on false -> is not accesible to others, user is required to call 'leave' later, or facility wont be accesible
         void leave();
+        /// process is puted in queue and is invoked when its time
         void enque(Process* process);
+        /// process on begining of queue is removed and invoked
         void dequeue();
 };
 
@@ -96,9 +107,13 @@ class Store
         std::vector<Event> queue;
 
     public:
+        /// returns available capacity
         unsigned int available_capacity();
+        /// takes capacity if available
         unsigned int take(unsigned int requirment);
+        /// gives back capacity
         void give_back(unsigned int requirment);
+        /// process is putted in queue and invoked when its time
         void enque(Process* process);
         void dequeue();
 };
@@ -122,12 +137,16 @@ class Enviroment
     public:
         double current_time = 0;
         Enviroment(double end_time);
+        /// puts event in calendar (time is spsecified, by event)
         void schedule(Event event);
+        /// main simulation loop
         void run(void);
         ///pass facility instation and name as string (used for accesing that facility later)
         void add_facility(std::string name, Facility fac);
         ///pass store instation and name as string (used for accesing that store later)
         void add_store(std::string name, Store store);
+        /// gets facility by name (as string)
         Facility* get_facility(std::string name);
+        /// gets store by name (as string)
         Store* get_store(std::string name);
 };
