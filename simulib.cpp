@@ -81,9 +81,19 @@ Process::Process(Enviroment* env)
 
 void Process::hand_over(double time,int next)
 {
+    for (auto const& stat : this->statistics)
+    {
+        stat.second->on_process_handover(this,time);
+    }
+
     this->next_state = next;
     env->schedule(Event(env->current_time+time, this));
     return;
+}
+
+void Process::add_statistic(std::string name,Statistic* statistic)
+{
+    this->statistics[name] = statistic;
 }
 
 // Enviroment
@@ -104,9 +114,9 @@ void Enviroment::schedule(Event event)
 {
     for (Statistic* stat : this->statistics)
     {
-        stat->on_event_schedule(event);
+        stat->on_event_schedule(event,current_time);
     }
-    
+
     if (event.get_time() > this->end_time) return;
     for(unsigned int i = 0;i<event_calendar.size();i++)
     {
@@ -127,7 +137,7 @@ void Enviroment::run(void)
         this->current_time = nevent.get_time();
         for (Statistic* stat : this->statistics)
         {
-                stat->on_event_execute(nevent);
+                stat->on_event_execute(nevent,current_time);
         }
         nevent.execute();
     }
@@ -157,6 +167,11 @@ bool Facility::is_occupied(){
 
 bool Facility::occupy()
 {
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_facility_occupy(!this->occupied);
+    }
+
     if( this->occupied == true) return false;
     this->occupied = true;
     return true;
@@ -164,24 +179,52 @@ bool Facility::occupy()
 }
 void Facility::leave()
 {
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_facility_leave();
+    }
     this->occupied = false;
     this->dequeue();
 }
 
 void Facility::enque( Process* process)
 {
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_enqueue(process);
+    }
+
     this->queue.push_back(Event(0, process));
 }
 
 void Facility::dequeue()
 {
+    
     if (queue.empty()) return;
     Event event = queue.front();
     queue.erase(queue.begin());
+
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_dequeue(event);
+    }
+
     event.execute();
 }
+int Facility::size_of_queue()
+{
+    return this->queue.size();
+}
 
+void Facility::add_statistic(Statistic* stat)
+{
+    this->statistics.push_back(stat);
+}
 //Store
+Store::Store(int capacity_req)
+{
+    this->capacity = capacity_req;
+}
 
 Store* Enviroment::get_store(std::string name)
 {
@@ -193,8 +236,19 @@ unsigned int Store::available_capacity()
     return (this->capacity - this->occupied);
 }
 
+int Store::size_of_queue()
+{
+    return this->queue.size();
+}
+
+
 unsigned int Store::take(unsigned int requirment)
 {
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_store_take(this->available_capacity() >= requirment,requirment,this->available_capacity());
+    }
+
     if( this->available_capacity() < requirment) return false;
     this->occupied += requirment;
     return true;
@@ -202,21 +256,58 @@ unsigned int Store::take(unsigned int requirment)
 }
 void Store::give_back(unsigned int requirment)
 {
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_store_give_back(requirment,this->available_capacity());
+    }
+
     this->occupied -= requirment;
     this->dequeue();
 }
+
 
 void Store::enque( Process* process, int required = 1)
 {
     // atribut time of event isnt needed, so we put in it number of required capcity
     this->queue.push_back(Event(required, process));
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_enqueue(process);
+    }
 }
 
 
 void Store::dequeue(){
+
+    if (queue.empty()) return;
     Event event = queue.front();
     // if capacity requirment of process isnt fullfilled, dequeuing is canceled
     if( this->available_capacity() < event.get_time()) return;
+
     queue.erase(queue.begin());
+
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_dequeue(event);
+    }
+
     event.execute();
+}
+
+void Store::add_statistic(Statistic* stat)
+{
+    this->statistics.push_back(stat);
+}
+
+//Statistics
+
+void Runtime::print_stat(void)
+{
+    std::cout << "RUNTIME STATISTIC: " << std::endl << std::endl;
+    std::cout << "Events scheduled: " << scheduled << "          " << "Events executed: " << std::endl << std::endl;
+    std::cout << "Simulation time step: " << std::endl;
+    for (double step : this->steps)
+    {
+        std::cout << step << "|";
+    }
 }

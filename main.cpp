@@ -12,43 +12,115 @@
 #include "simulib.hpp"
 #include <typeinfo>
 #include <functional>
+#include <string>
 
-class PrintPrdelProcess: public Process
+class CustomerProcess: public Process
 {
+    private:
+    std::string name_of_poklada = "None";
+    
     public:
-    explicit PrintPrdelProcess(Enviroment* env) : Process(env) { }
+    explicit CustomerProcess(Enviroment* env) : Process(env) { }
 
     void start(void) override
     {
-        std::cout << "Prdel zacatek" << std::endl;
-        this->hand_over(Distribution::normal(5,1),1);
+        std::cout << "Prijel jsem na parkoviste" << std::endl;
+        this->hand_over(Distribution::normal(2,1),1);
         std::cout << "Prdel konec" << std::endl;        
     }
-    void print_prdel(void)
+    void get_kosik(void)
     {
         std::cout<<"try to find prdelarna"<<std::endl;
-        Facility* prdelarna = this->env->get_facility("prdelarna");
-        std::cout<<"prdelarna found"<<std::endl;
-        if (prdelarna->occupy()){
-            std::cout << "Prdel something" << std::endl;
+        Store* kosiky = this->env->get_store("kosiky");
+        if (kosiky->available_capacity() > 0){
+            std::cout << "I have kosik" << std::endl;
             this->hand_over(Distribution::normal(5,1),2);
         }else
         {
             std::cout<<"time to enq"<<std::endl;
-            prdelarna->enque(this);
+            kosiky->enque(this, 1);
             std::cout<<"i am in queue"<<std::endl;
         }
         
     }
-    void done(void)
+
+    void start_shopping()
     {
-        std::cout<<"Dan prichazi"<<std::endl;
-        Facility* prdelarna = this->env->get_facility("prdelarna");
-        std::cout<<"Dan odchazi z prdelarny"<<std::endl;
-        prdelarna->leave();
-        std::cout << "Ahoj ja jsem Dan" << std::endl;
+        
+        //DECISION
+        this->hand_over(Distribution::normal(5,1), 3); //jde si nakoupit uzeniny
+
+        this->hand_over(Distribution::normal(5,1), 4); //jde najit pokladnu
+
+        this->hand_over(Distribution::normal(5,1), 5); //jde najit samoobslznou pokladnu
+
+    }
+    
+    void get_uzeniny()
+    {
+        Store* uzeniny = this->env->get_store("uzeniny");
+        if (uzeniny->available_capacity() > 0){
+            this->hand_over(Distribution::normal(5,1),7);///<<<change state
+        }else
+        {
+            uzeniny->enque(this, 1);
+        }
+    }
+
+    void leave_uzeniny()
+    {
+        Store* uzeniny = this->env->get_store("uzeniny");
+        uzeniny->give_back(1);
+        
+        //DECISION
+        this->hand_over(Distribution::normal(5,1), 4); //jde najit pokladnu
+
+        this->hand_over(Distribution::normal(5,1), 5); //jde najit samoobslznou pokladnu
+    }
+    
+    void find_pokladna()
+    {
+        Facility* best_pokladna;
+        int smallest_queue = 50;
+        std::vector<std::string> pokladny = {"pokladna1", "pokladna2", "pokladna3", "pokladna4"};
+
+        // vyber pokladny bez fronty, pripadne najiti pokladny s nejkratsi frontou
+        for (std::string pokladna_name : pokladny)
+        {
+            Facility* pokladna = this->env->get_facility("pokladna_name");
+            int queue_size = pokladna->size_of_queue();
+            if(queue_size == 0 )
+            {
+                this->hand_over(Distribution::normal(5,1), 6);
+                this->name_of_poklada = pokladna_name;
+                return;
+            }else if(queue_size < smallest_queue)
+            {
+                smallest_queue = queue_size;
+                best_pokladna = pokladna;
+            }
+        }
+        best_pokladna->enque(this);
+    }
+    
+    void get_samoobsluzna_pokladna()
+    {
+        Store* s_pokladna = this->env->get_store("s_pokladna");
+        if (uzeniny->available_capacity() > 0){
+            this->hand_over(Distribution::normal(5,1),7);///<<<change state
+        }else
+        {
+            uzeniny->enque(this, 1);
+        }
+    }
+
+    void give_kosik_back(void)
+    {
+        Store* kosiky = this->env->get_store("kosiky");
+        kosiky->give_back(1);
         delete this;
     }
+
     void next(void) override
     {
         switch (this->next_state)
@@ -57,10 +129,25 @@ class PrintPrdelProcess: public Process
             start();
             break;
         case 1:
-            print_prdel();
+            get_kosik();
             break;
         case 2:
-            done();
+            start_shopping();
+            break;
+        case 3:
+            get_uzeniny();
+            break;
+        case 4:
+            find_pokladna();
+            break;
+        case 5:
+            get_samoobsluzna_pokladna();
+            break;
+        case 6:
+            give_kosik_back();
+            break;
+        case 7:
+            leave_uzeniny();
             break;
         default:
             break;
@@ -106,8 +193,19 @@ class Enviroment_stats: public Statistic
 
 int main(int argc, char const *argv[])
 {
-    // Init enviroment
-    Enviroment env = Enviroment(2000);
+    // inicializace enviroment s casem 720 (720 minut = 12 hodin)
+    Enviroment env = Enviroment(720);
+    
+    //pomoci facility budeme modelovat 4 otevrenych pokladen
+    env.add_facility("pokladna1", Facility());
+    env.add_facility("pokladna2", Facility());
+    env.add_facility("pokladna3", Facility());
+    env.add_facility("pokladna4", Facility());
+    //pomoci store budeme modelovat stojan na kosiky a pult na prodej uzenin (1 fronta, 2 lidi obsluhijici zakazniky)
+    env.add_store("kosiky", Store(33)); 
+    env.add_store("uzeniny", Store(2));
+
+
     // Add generators
     Generator gen = Generator(&env);
     // Add facilities
@@ -117,34 +215,11 @@ int main(int argc, char const *argv[])
     env.add_statistic(&stat1);
     //Start generators and run the simulation
     gen.start();
+
+
+
     env.run();
     //Process and print statistics
     stat1.result();
     return 0;
 }
-
-
-/*/V enviroment
-
-map <string name,Statistic *stat>;
-
-//V mainu
-class ProceessTimes: public Staticstic
-{
-    void do_something(void) override
-    {
-
-    }
-}
-
-ProceessTimes proctimestat;
-env -> addstat("name of statistics",&stat)
-env.run()
-
-cout << time in processsed << endl
-proctimestat.histogram();
-
-//Kdekoliv v env
-for each statistic in mapstat
-    stistic->do_something
-/*/

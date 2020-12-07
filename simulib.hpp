@@ -37,10 +37,12 @@ class Process
         Enviroment* env;
         double start_time;
         int next_state;
+        std::map<std::string,Statistic*> statistics;
     public:
         /// Constructor for porcess, class, requires initilized enviroment
         Process(Enviroment* env);
-        
+        /// Registers a new statistic for process to use
+        void add_statistic(std::string name,Statistic* statistic);
         virtual void start(void) = 0;
         virtual void next(void) = 0;
         /// creates event in calendar to 'current_time' + 'time' and sets state if process on 'next'
@@ -62,7 +64,7 @@ class Event
         Event(double time, Process* process);
         /// Invokes process from event according to his state
         void execute();
-        // returns event time
+        /// returns event time
         double get_time();
 
         bool operator>(Event& other);
@@ -81,7 +83,7 @@ class Facility
     private:
         bool occupied = false;
         std::vector<Event> queue;
-
+        std::vector<Statistic*> statistics;
     public:
         /// True if facility is occupied and false, if not
         bool is_occupied();
@@ -89,10 +91,14 @@ class Facility
         bool occupy();
         /// Sets occupied on false -> is not accesible to others, user is required to call 'leave' later, or facility wont be accesible
         void leave();
-        /// process is puted in queue and is invoked when its time
+        /// process is put in queue and is invoked when its time
         void enque(Process* process);
         /// process on begining of queue is removed and invoked
         void dequeue();
+        /// returns size of queue
+        int size_of_queue();
+        /// Registers a new statistic for facility to use
+        void add_statistic(Statistic* statistic);
 };
 
 
@@ -106,8 +112,9 @@ class Store
         unsigned int capacity;
         unsigned int occupied = 0;
         std::vector<Event> queue;
-
+        std::vector<Statistic*> statistics;
     public:
+        Store(int capacity_req);
         /// returns available capacity
         unsigned int available_capacity();
         /// takes capacity if available
@@ -118,6 +125,10 @@ class Store
         void enque(Process* process, int required);
         /// process from front of queue is waiting till his requirment is possible to satisfy, all processes behind him, are waiting too (no overtaking)
         void dequeue();
+        /// returns size of queue
+        int size_of_queue();
+        /// Registers a new statistic for store to use
+        void add_statistic(Statistic* statistic);
 };
 
 
@@ -143,9 +154,9 @@ class Enviroment
         void schedule(Event event);
         /// main simulation loop
         void run(void);
-        ///pass facility instation and name as string (used for accesing that facility later)
+        /// pass facility instation and name as string (used for accesing that facility later)
         void add_facility(std::string name, Facility fac);
-        ///pass store instation and name as string (used for accesing that store later)
+        /// pass store instation and name as string (used for accesing that store later)
         void add_store(std::string name, Store store);
         /// gets facility by name (as string)
         Facility* get_facility(std::string name);
@@ -155,11 +166,42 @@ class Enviroment
         void add_statistic(Statistic* statistic);
 };
 
+/*!
+    @class Statistic
+    @brief Base class for creating statistics. 
+
+    Base class for statistics which provides entry points to the inner works of other classes with its methods.
+*/
 class Statistic
 {
     public:
-        virtual void on_event_schedule(Event event){};
-        virtual void on_event_execute(Event event){};
-        virtual void on_create_event(double time){};
-        virtual void on_enter_facility(double time){};
+        /// Override with your implementation. Called on every schedule call in registered enviroment. The event parameter is filled with the copy of the event scheduled.
+        virtual void on_event_schedule(Event event,double time){};
+        /// Override with your implementation. Called on every event execute call in registered enviroment. The event parameter is filled with the copy of the event executed.
+        virtual void on_event_execute(Event event,double time){};
+        /// Override with your implementation. Called on every handover call in registered process. Reference to the process is given as an argument
+        virtual void on_process_handover(Process* proc,double time){};
+        /// Override with your implementation. Called on every occupy call in registered facility.
+        virtual void on_facility_occupy(bool occupied){};
+        /// Override with your implementation. Called on every leave call in registered facility.
+        virtual void on_facility_leave(void){};
+        /// Override with your implementation. Called on every take call in registered store.
+        virtual void on_store_take(bool occupied,unsigned int requirement, unsigned int available){};
+        /// Override with your implementation. Called on every give_back call in registered store.
+        virtual void on_store_give_back(unsigned int value, unsigned int available){};
+        /// Override with your implementation. Called on every enqueue call in registered facility or store. Reference to the process is given as an argument
+        virtual void on_enqueue(Process* proc){};
+        /// Override with your implementation. Called on every dequeue call in registered facility or store. Reference to the event is given as an argument
+        virtual void on_dequeue(Event event){};
+};
+
+class Runtime: public Statistic
+{
+    private:
+        // Events scheduled, Events executed, steps
+        std::vector<double> steps;
+        unsigned int scheduled = 0;
+        unsigned int executed = 0; 
+    public:
+        void print_stat(void);   
 };
