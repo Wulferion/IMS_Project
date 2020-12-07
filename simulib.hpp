@@ -1,8 +1,14 @@
+/*!
+    @authors Vojtech Krejcik (xkrejc68), Jiri Pisk (xpiskj00)
+    @date 7. 12. 2020
+*/
 #pragma once
 #include <cstdint>
 #include <vector>
 #include <map>
 #include <functional>
+
+/// @brief class encapsulating static methods for generating distribution
 class Distribution
 {
     public:
@@ -13,6 +19,15 @@ class Distribution
 
 };
 class Enviroment;
+/*!
+    @class Process
+    @brief class for basic process meant to inherited by user of library
+    
+    Class is supposed to be inherited for creation of process generators a processes itself. Behaviour of process is
+    expected to be implementd as finite state machine created by methods and changing 'next_state' attribute. End 
+    of each method should be ended with method 'hand_over(double time, int next)' where time is time to, when process
+    gets invoked again and 'next' is next_state. See example simulator for better understanding.
+*/
 class Process
 {
     private:
@@ -28,6 +43,11 @@ class Process
         void hand_over(double time, int next);
 };
 
+
+/*!
+    @class Event
+    @brief Class for storing reference for process and time when process is suppose to be invoked
+*/
 class Event
 {
     private:
@@ -44,6 +64,11 @@ class Event
         bool operator<=(Event& other);
         bool operator>=(Event& other);
 };
+
+/*!
+    @class Facility
+    @brief Implementation of facility and queue for facilit. 
+*/
 class Facility
 { 
     private:
@@ -58,6 +83,11 @@ class Facility
         void dequeue();
 };
 
+
+/*!
+    @class Store
+    @brief Implementation of Store with settible capacity and queue
+*/
 class Store
 { 
     private:
@@ -73,6 +103,13 @@ class Store
         void dequeue();
 };
 
+
+/*!
+    @class Enviroment
+    @brief Class for setting up whole simulation
+
+    Class containing all facilities, store and implementation of 'Event Calendar'
+*/
 class Enviroment
 {
     private:
@@ -87,6 +124,10 @@ class Enviroment
         Enviroment(double end_time);
         void schedule(Event event);
         void run(void);
+        ///pass facility instation and name as string (used for accesing that facility later)
         void add_facility(std::string name, Facility fac);
+        ///pass store instation and name as string (used for accesing that store later)
+        void add_store(std::string name, Store store);
         Facility* get_facility(std::string name);
+        Store* get_store(std::string name);
 };

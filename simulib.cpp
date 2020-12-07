@@ -1,3 +1,7 @@
+/*!
+    @authors Vojtech Krejcik (xkrejc68), Jiri Pisk (xpiskj00)
+    @date 7. 12. 2020
+*/
 #include "simulib.hpp"
 #include <ctime>
 #include <cmath>
