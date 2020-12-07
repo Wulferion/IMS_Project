@@ -19,6 +19,7 @@ class Distribution
 
 };
 class Enviroment;
+class Statistic;
 /*!
     @class Process
     @brief class for basic process meant to inherited by user of library
@@ -114,7 +115,8 @@ class Store
         /// gives back capacity
         void give_back(unsigned int requirment);
         /// process is putted in queue and invoked when its time
-        void enque(Process* process);
+        void enque(Process* process, int required);
+        /// process from front of queue is waiting till his requirment is possible to satisfy, all processes behind him, are waiting too (no overtaking)
         void dequeue();
 };
 
@@ -128,7 +130,7 @@ class Store
 class Enviroment
 {
     private:
-        
+        std::vector<Statistic*> statistics;
         double end_time;
         std::vector<Event> event_calendar;
         Event next_event(void);
@@ -149,4 +151,15 @@ class Enviroment
         Facility* get_facility(std::string name);
         /// gets store by name (as string)
         Store* get_store(std::string name);
+        /// Registers a new statistic for enviroment to use
+        void add_statistic(Statistic* statistic);
+};
+
+class Statistic
+{
+    public:
+        virtual void on_event_schedule(Event event){};
+        virtual void on_event_execute(Event event){};
+        virtual void on_create_event(double time){};
+        virtual void on_enter_facility(double time){};
 };

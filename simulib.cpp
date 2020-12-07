@@ -102,8 +102,11 @@ Event Enviroment::next_event(void)
 
 void Enviroment::schedule(Event event)
 {
-    //auto bigger = std::upper_bound(begin(event_calendar), end(event_calendar), event);
-
+    for (Statistic* stat : this->statistics)
+    {
+        stat->on_event_schedule(event);
+    }
+    
     if (event.get_time() > this->end_time) return;
     for(unsigned int i = 0;i<event_calendar.size();i++)
     {
@@ -122,6 +125,10 @@ void Enviroment::run(void)
     {
         Event nevent = next_event();
         this->current_time = nevent.get_time();
+        for (Statistic* stat : this->statistics)
+        {
+                stat->on_event_execute(nevent);
+        }
         nevent.execute();
     }
 }
@@ -131,13 +138,19 @@ void Enviroment::add_facility(std::string name, Facility fac)
     this->facilities[name] = fac;
 }
 
-//Facitity
+void Enviroment::add_statistic(Statistic* stat)
+{
+    this->statistics.push_back(stat);
+}
+
 
 Facility* Enviroment::get_facility(std::string name)
 {
+    if(facilities.find(name) == facilities.end()) return NULL;
     return &facilities[name];
 }
 
+//Facitity
 bool Facility::is_occupied(){
     return this->occupied;
 }
@@ -160,7 +173,9 @@ void Facility::enque( Process* process)
     this->queue.push_back(Event(0, process));
 }
 
-void Facility::dequeue(){
+void Facility::dequeue()
+{
+    if (queue.empty()) return;
     Event event = queue.front();
     queue.erase(queue.begin());
     event.execute();
@@ -168,14 +183,14 @@ void Facility::dequeue(){
 
 //Store
 
-Facility* Enviroment::get_store(std::string name)
+Store* Enviroment::get_store(std::string name)
 {
     return &stores[name];
 }
 
 unsigned int Store::available_capacity()
 {
-    return (this->capacity - this->occupied();
+    return (this->capacity - this->occupied);
 }
 
 unsigned int Store::take(unsigned int requirment)
@@ -191,15 +206,17 @@ void Store::give_back(unsigned int requirment)
     this->dequeue();
 }
 
-void Store::enque( Process* process)
+void Store::enque( Process* process, int required = 1)
 {
-    this->queue.push_back(Event(0, process));
+    // atribut time of event isnt needed, so we put in it number of required capcity
+    this->queue.push_back(Event(required, process));
 }
 
 
-//PRDEL - PROBLEM !!!!!!!!
 void Store::dequeue(){
     Event event = queue.front();
+    // if capacity requirment of process isnt fullfilled, dequeuing is canceled
+    if( this->available_capacity() < event.get_time()) return;
     queue.erase(queue.begin());
     event.execute();
 }

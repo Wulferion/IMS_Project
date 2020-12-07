@@ -34,3 +34,7 @@
 # VSCode stuff
 .vscode
 .swp
+
+# Doxygen stuff
+html
+latex
