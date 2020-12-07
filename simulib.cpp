@@ -148,6 +148,11 @@ void Enviroment::add_facility(std::string name, Facility fac)
     this->facilities[name] = fac;
 }
 
+void Enviroment::add_store(std::string name, Store store)
+{
+    this->stores[name] = store;
+}
+
 void Enviroment::add_statistic(Statistic* stat)
 {
     this->statistics.push_back(stat);
@@ -301,7 +306,7 @@ void Store::add_statistic(Statistic* stat)
 
 //Statistics
 
-void Runtime::print_stat(void)
+void RuntimeStat::print_stat(void)
 {
     std::cout << "RUNTIME STATISTIC: " << std::endl << std::endl;
     std::cout << "Events scheduled: " << scheduled << "          " << "Events executed: " << std::endl << std::endl;
@@ -310,4 +315,15 @@ void Runtime::print_stat(void)
     {
         std::cout << step << "|";
     }
+}
+
+void RuntimeStat::on_event_schedule(Event event,double time)
+{
+    scheduled++;
+}
+
+void RuntimeStat::on_event_execute(Event event,double time)
+{
+    executed++;
+    steps.push_back(time);
 }

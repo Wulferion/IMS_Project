@@ -8,7 +8,7 @@
 #include <map>
 #include <functional>
 
-/// @brief class encapsulating static methods for generating distribution
+/// @brief Static class for generating distribution
 class Distribution
 {
     public:
@@ -22,9 +22,9 @@ class Enviroment;
 class Statistic;
 /*!
     @class Process
-    @brief class for basic process meant to inherited by user of library
+    @brief class for basic process meant to be inherited from
     
-    Class is supposed to be inherited for creation of process generators a processes itself. Behaviour of process is
+    This class is supposed to be inherited from for creation of process generators a processes themselves. Behaviour of the process is
     expected to be implementd as finite state machine created by methods and changing 'next_state' attribute. End 
     of each method should be ended with method 'hand_over(double time, int next)' where time is time to, when process
     gets invoked again and 'next' is next_state. See example simulator for better understanding.
@@ -34,11 +34,11 @@ class Process
     private:
         
     protected:
-        Enviroment* env;
         double start_time;
         int next_state;
         std::map<std::string,Statistic*> statistics;
     public:
+        Enviroment* env;
         /// Constructor for porcess, class, requires initilized enviroment
         Process(Enviroment* env);
         /// Registers a new statistic for process to use
@@ -57,9 +57,9 @@ class Process
 class Event
 {
     private:
-        double time;  
-        Process* process;
+        double time;   
     public:
+        Process* process;
         /// Creates event with 'current_time' + 'time' and reference to process
         Event(double time, Process* process);
         /// Invokes process from event according to his state
@@ -109,11 +109,12 @@ class Facility
 class Store
 { 
     private:
-        unsigned int capacity;
+        unsigned int capacity = 0;
         unsigned int occupied = 0;
         std::vector<Event> queue;
         std::vector<Statistic*> statistics;
     public:
+        Store(){};
         Store(int capacity_req);
         /// returns available capacity
         unsigned int available_capacity();
@@ -195,7 +196,7 @@ class Statistic
         virtual void on_dequeue(Event event){};
 };
 
-class Runtime: public Statistic
+class RuntimeStat: public Statistic
 {
     private:
         // Events scheduled, Events executed, steps
@@ -203,5 +204,7 @@ class Runtime: public Statistic
         unsigned int scheduled = 0;
         unsigned int executed = 0; 
     public:
-        void print_stat(void);   
+        void print_stat(void);
+        void on_event_schedule(Event event,double time) override;
+        void on_event_execute(Event event,double time) override;
 };

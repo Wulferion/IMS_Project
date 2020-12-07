@@ -13,33 +13,39 @@
 #include <typeinfo>
 #include <functional>
 #include <string>
+#include <numeric>
 
+/*
+
+
+                                                                                            /-> find_pokladna  ------------\
+                                                                                           /                                \
+    get_kosik  ----------------------->start_shoping  ------------------- -------------- ->                                   ---> give_kosik_back
+               \                    /                  \                              /   \                                /
+                ->fronta na kosik /                     \->get_uzeniny->leave_uzeniny/     \ ->get_samoobsluzna_pokladna  /
+
+*/
 class CustomerProcess: public Process
 {
     private:
-    std::string name_of_poklada = "None";
+    std::string name_of_pokladna = "";
     
     public:
     explicit CustomerProcess(Enviroment* env) : Process(env) { }
 
     void start(void) override
     {
-        std::cout << "Prijel jsem na parkoviste" << std::endl;
         this->hand_over(Distribution::normal(2,1),1);
-        std::cout << "Prdel konec" << std::endl;        
     }
     void get_kosik(void)
     {
-        std::cout<<"try to find prdelarna"<<std::endl;
         Store* kosiky = this->env->get_store("kosiky");
         if (kosiky->available_capacity() > 0){
-            std::cout << "I have kosik" << std::endl;
-            this->hand_over(Distribution::normal(5,1),2);
+            kosiky->take(1);
+            this->hand_over(Distribution::normal(20,1),2);
         }else
         {
-            std::cout<<"time to enq"<<std::endl;
             kosiky->enque(this, 1);
-            std::cout<<"i am in queue"<<std::endl;
         }
         
     }
@@ -47,20 +53,23 @@ class CustomerProcess: public Process
     void start_shopping()
     {
         
+        double decision = Distribution::random();
         //DECISION
-        this->hand_over(Distribution::normal(5,1), 3); //jde si nakoupit uzeniny
-
-        this->hand_over(Distribution::normal(5,1), 4); //jde najit pokladnu
-
-        this->hand_over(Distribution::normal(5,1), 5); //jde najit samoobslznou pokladnu
-
+        if(decision < 0.7){
+            this->hand_over(Distribution::normal(5,1), 3); //jde si nakoupit uzeniny
+        }else if(decision < 9){
+           this->hand_over(Distribution::normal(5,1), 4); //jde najit pokladnu
+        }else{
+            this->hand_over(Distribution::normal(5,1), 5); //jde najit samoobslznou pokladnu
+        }
     }
     
     void get_uzeniny()
     {
         Store* uzeniny = this->env->get_store("uzeniny");
         if (uzeniny->available_capacity() > 0){
-            this->hand_over(Distribution::normal(5,1),7);///<<<change state
+            uzeniny->take(1);
+            this->hand_over(Distribution::uniform(2,5),7);// opoustim uzeniny
         }else
         {
             uzeniny->enque(this, 1);
@@ -71,11 +80,10 @@ class CustomerProcess: public Process
     {
         Store* uzeniny = this->env->get_store("uzeniny");
         uzeniny->give_back(1);
-        
+        double decision = Distribution::random();
         //DECISION
-        this->hand_over(Distribution::normal(5,1), 4); //jde najit pokladnu
-
-        this->hand_over(Distribution::normal(5,1), 5); //jde najit samoobslznou pokladnu
+        if(decision < 0.7)  this->hand_over(Distribution::normal(5,1), 4); //jde najit pokladnu
+        else this->hand_over(Distribution::normal(3,1), 5); //jde najit samoobslznou pokladnu
     }
     
     void find_pokladna()
@@ -87,12 +95,12 @@ class CustomerProcess: public Process
         // vyber pokladny bez fronty, pripadne najiti pokladny s nejkratsi frontou
         for (std::string pokladna_name : pokladny)
         {
-            Facility* pokladna = this->env->get_facility("pokladna_name");
+            Facility* pokladna = this->env->get_facility(pokladna_name);
             int queue_size = pokladna->size_of_queue();
             if(queue_size == 0 )
             {
-                this->hand_over(Distribution::normal(5,1), 6);
-                this->name_of_poklada = pokladna_name;
+                this->hand_over(Distribution::normal(5,1), 6);//opusti obchod
+                this->name_of_pokladna = pokladna_name;
                 return;
             }else if(queue_size < smallest_queue)
             {
@@ -106,16 +114,23 @@ class CustomerProcess: public Process
     void get_samoobsluzna_pokladna()
     {
         Store* s_pokladna = this->env->get_store("s_pokladna");
-        if (uzeniny->available_capacity() > 0){
-            this->hand_over(Distribution::normal(5,1),7);///<<<change state
+        if (s_pokladna->available_capacity() > 0){
+            this->name_of_pokladna = "s_pokladna";
+            s_pokladna->take(1);
+            this->hand_over(Distribution::normal(5,1), 6); //opusti obchod
         }else
         {
-            uzeniny->enque(this, 1);
+            s_pokladna->enque(this, 1);
         }
     }
 
     void give_kosik_back(void)
     {
+        if(this->name_of_pokladna == "s_pokladna"){
+            (this->env->get_store(this->name_of_pokladna))->give_back(1);
+        }else{
+            (this->env->get_facility(this->name_of_pokladna))->leave();
+        }
         Store* kosiky = this->env->get_store("kosiky");
         kosiky->give_back(1);
         delete this;
@@ -154,42 +169,58 @@ class CustomerProcess: public Process
         }
     }
 };
+// pocet lidi co jdou do fronty na kosik (počet enque u kosiku), celkovy pocet lidi (v generatoru), jak dlouho tam jsou (u enque uložit proces a cas, u deque najit proces odecist cas ulozit do vectoru casu)
+class CustomerStatistics:public Statistic
+{
+    private:
+        unsigned int enQ = 0;
+        unsigned int customers = 0;
+        std::map<Process*,double> enQ_time;
+        std::vector<double> times_in_q;
+    public:
+        void on_enqueue(Process* proc) override
+        {
+            enQ++;
+            enQ_time[proc] = proc->env->current_time;
+        }
+        void on_dequeue(Event event) override
+        {
+            double time_enq = enQ_time[event.process];
+            enQ_time.erase(event.process);
+            times_in_q.push_back(event.process->env->current_time - time_enq);
+        }
+        void on_generate(void)
+        {
+            customers++;
+        }
 
-class Generator: public Process
+        void result(void)
+        {
+            double mean_q_time = std::accumulate(times_in_q.begin(),times_in_q.end(),0.0) / times_in_q.size();
+            std::cout << "CUSTOMER STATISTICS: " << std::endl;
+            std::cout << "Do fronty na kosik si stouplo "<< enQ << " zakazniku z celkových " << customers << "." << std::endl;
+            std::cout << "Prumerny cas straveny ve fronte na kosiky byl: " << mean_q_time << " minut." << std::endl;
+        }
+};
+class CustomerGenerator: public Process
 {
     public:
-    explicit Generator(Enviroment* env) : Process(env) { }
+    CustomerStatistics *stat;
+
+    explicit CustomerGenerator(Enviroment* env) : Process(env) { }
     void next() override
     {
         start();
     }
     void start() override
     {
-        PrintPrdelProcess* proc = new PrintPrdelProcess(this->env);
-        this->hand_over(Distribution::normal(10,2),0);
+        CustomerProcess* proc = new CustomerProcess(this->env);
+        this->hand_over(Distribution::uniform(1,2),0);
         proc->hand_over(0,0);
+        stat->on_generate();
     }
 };
 
-class Enviroment_stats: public Statistic
-{
-    public:
-        int scheduled = 0;
-        int executed = 0;
-
-    void on_event_schedule(Event event) override
-    {
-        this->scheduled++;
-    }
-    void on_event_execute(Event event) override
-    {
-        this->executed++;
-    }
-    void result(void)
-    {
-        std::cout << "Scheduled events: " << this->scheduled << std::endl << "Executed events: " << this->executed << std::endl;
-    }
-};
 
 int main(int argc, char const *argv[])
 {
@@ -202,17 +233,19 @@ int main(int argc, char const *argv[])
     env.add_facility("pokladna3", Facility());
     env.add_facility("pokladna4", Facility());
     //pomoci store budeme modelovat stojan na kosiky a pult na prodej uzenin (1 fronta, 2 lidi obsluhijici zakazniky)
-    env.add_store("kosiky", Store(33)); 
+    env.add_store("kosiky", Store(25)); 
     env.add_store("uzeniny", Store(2));
+    //3 samoobsluzne pokladny jako store
+    env.add_store("s_pokladna", Store(3));
+
+    // Add statistics
+    CustomerStatistics customerStatistics = CustomerStatistics();
+    env.get_store("kosiky")->add_statistic(&customerStatistics);
 
 
     // Add generators
-    Generator gen = Generator(&env);
-    // Add facilities
-    env.add_facility("prdelarna",Facility());
-    // Add statistics
-    Enviroment_stats stat1 = Enviroment_stats();
-    env.add_statistic(&stat1);
+    CustomerGenerator gen = CustomerGenerator(&env);
+    gen.stat = &customerStatistics;
     //Start generators and run the simulation
     gen.start();
 
@@ -220,6 +253,6 @@ int main(int argc, char const *argv[])
 
     env.run();
     //Process and print statistics
-    stat1.result();
+    customerStatistics.result();
     return 0;
 }
